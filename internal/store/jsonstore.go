@@ -83,7 +83,11 @@ func (s *JSONStore) List() ([]*domain.MigrationCase, error) {
 	sort.Strings(ids)
 	result := make([]*domain.MigrationCase, 0, len(ids))
 	for _, id := range ids {
-		result = append(result, s.data.Cases[id])
+		c, err := cloneCase(s.data.Cases[id])
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, c)
 	}
 	return result, nil
 }

@@ -7,6 +7,7 @@ import (
 	"sort"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	"benzhi-project-7ddaa5b5-9f98-44e8-b52e-996e5b2603ff/internal/domain"
@@ -14,6 +15,7 @@ import (
 
 type Evaluator struct {
 	now   func() time.Time
+	mu    sync.RWMutex
 	cache map[string][]domain.PolicyFinding
 }
 
@@ -31,11 +33,27 @@ func (e *Evaluator) Evaluate(caseID string, revision int64, plan domain.Plan) []
 		Plan    domain.Plan `json:"plan"`
 	}{caseID, revision, plan})
 	key := string(keyBytes)
-	if cached, ok := e.cache[key]; ok {
+	e.mu.RLock()
+	cached, ok := e.cache[key]
+	e.mu.RUnlock()
+	if ok {
 		return append([]domain.PolicyFinding(nil), cached...)
 	}
 	findings := e.evaluateRules(caseID, revision, plan, Catalog())
-	e.cache[key] = append([]domain.PolicyFinding(nil), findings...)
+	stored := append([]domain.PolicyFinding(nil), findings...)
+	e.mu.Lock()
+	var duplicate bool
+	if existing, ok := e.cache[key]; ok {
+		cached = existing
+		duplicate = true
+	} else {
+		e.cache[key] = stored
+		cached = stored
+	}
+	e.mu.Unlock()
+	if duplicate {
+		return append([]domain.PolicyFinding(nil), cached...)
+	}
 	return findings
 }
 

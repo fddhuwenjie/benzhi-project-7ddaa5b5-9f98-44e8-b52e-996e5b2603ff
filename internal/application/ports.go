@@ -13,8 +13,8 @@ type Repository interface {
 	List() ([]*domain.MigrationCase, error)
 	FindByTreeCode(normalized, excludeCaseID string) (*domain.MigrationCase, bool, error)
 	LookupOperation(requestID string) (store.OperationResult, bool, error)
-	CreateWithAudit(c *domain.MigrationCase, requestID, action string, response json.RawMessage, now time.Time, audit store.AuditContext) error
-	SaveWithAudit(c *domain.MigrationCase, expected int64, requestID, action string, from domain.Status, response json.RawMessage, now time.Time, audit store.AuditContext) error
+	CreateWithAudit(c *domain.MigrationCase, requestID, action, requestDigest string, response json.RawMessage, now time.Time, audit store.AuditContext) error
+	SaveWithAudit(c *domain.MigrationCase, expected int64, requestID, action, requestDigest string, from domain.Status, response json.RawMessage, now time.Time, audit store.AuditContext) error
 	Events(caseID string) ([]store.AuditEvent, error)
 }
 

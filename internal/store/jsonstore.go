@@ -115,10 +115,10 @@ func (s *JSONStore) LookupOperation(requestID string) (OperationResult, bool, er
 }
 
 func (s *JSONStore) Create(c *domain.MigrationCase, requestID, action string, response json.RawMessage, now time.Time) error {
-	return s.CreateWithAudit(c, requestID, action, response, now, AuditContext{Actor: "系统角色", Result: "创建迁移方案草稿"})
+	return s.CreateWithAudit(c, requestID, action, "", response, now, AuditContext{Actor: "系统角色", Result: "创建迁移方案草稿"})
 }
 
-func (s *JSONStore) CreateWithAudit(c *domain.MigrationCase, requestID, action string, response json.RawMessage, now time.Time, audit AuditContext) error {
+func (s *JSONStore) CreateWithAudit(c *domain.MigrationCase, requestID, action, requestDigest string, response json.RawMessage, now time.Time, audit AuditContext) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if _, exists := s.data.Cases[c.ID]; exists {
@@ -135,7 +135,7 @@ func (s *JSONStore) CreateWithAudit(c *domain.MigrationCase, requestID, action s
 		return err
 	}
 	s.data.Cases[c.ID] = copyCase
-	s.record(requestID, action, domain.Status(""), c, response, now, audit)
+	s.record(requestID, action, requestDigest, domain.Status(""), c, response, now, audit)
 	if committed, err := s.persistLocked(); err != nil {
 		if !committed {
 			delete(s.data.Cases, c.ID)
@@ -148,10 +148,10 @@ func (s *JSONStore) CreateWithAudit(c *domain.MigrationCase, requestID, action s
 }
 
 func (s *JSONStore) Save(c *domain.MigrationCase, expected int64, requestID, action string, from domain.Status, response json.RawMessage, now time.Time) error {
-	return s.SaveWithAudit(c, expected, requestID, action, from, response, now, AuditContext{Actor: "系统角色", Result: action})
+	return s.SaveWithAudit(c, expected, requestID, action, "", from, response, now, AuditContext{Actor: "系统角色", Result: action})
 }
 
-func (s *JSONStore) SaveWithAudit(c *domain.MigrationCase, expected int64, requestID, action string, from domain.Status, response json.RawMessage, now time.Time, audit AuditContext) error {
+func (s *JSONStore) SaveWithAudit(c *domain.MigrationCase, expected int64, requestID, action, requestDigest string, from domain.Status, response json.RawMessage, now time.Time, audit AuditContext) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if existing, ok := s.data.Operations[requestID]; ok {
@@ -176,7 +176,7 @@ func (s *JSONStore) SaveWithAudit(c *domain.MigrationCase, expected int64, reque
 	}
 	previous := current
 	s.data.Cases[c.ID] = copyCase
-	s.record(requestID, action, from, c, response, now, audit)
+	s.record(requestID, action, requestDigest, from, c, response, now, audit)
 	if committed, err := s.persistLocked(); err != nil {
 		if !committed {
 			s.data.Cases[c.ID] = previous
@@ -200,8 +200,8 @@ func (s *JSONStore) Events(caseID string) ([]AuditEvent, error) {
 	return result, nil
 }
 
-func (s *JSONStore) record(requestID, action string, from domain.Status, c *domain.MigrationCase, response json.RawMessage, now time.Time, audit AuditContext) {
-	s.data.Operations[requestID] = OperationResult{RequestID: requestID, Action: action, CaseID: c.ID, Revision: c.Revision, Response: append(json.RawMessage(nil), response...), CreatedAt: now}
+func (s *JSONStore) record(requestID, action, requestDigest string, from domain.Status, c *domain.MigrationCase, response json.RawMessage, now time.Time, audit AuditContext) {
+	s.data.Operations[requestID] = OperationResult{RequestID: requestID, Action: action, CaseID: c.ID, Revision: c.Revision, RequestDigest: requestDigest, Response: append(json.RawMessage(nil), response...), CreatedAt: now}
 	sequence := int64(len(s.data.Events) + 1)
 	s.data.Events = append(s.data.Events, AuditEvent{ID: fmt.Sprintf("event-%06d", sequence), Sequence: sequence, CaseID: c.ID, Action: action, From: from, To: c.Status, Revision: c.Revision, RequestID: requestID, Actor: audit.Actor, Result: audit.Result, Timestamp: now})
 }

@@ -13,12 +13,13 @@ const SnapshotVersion = 1
 var errOperationExists = errors.New("request_id 操作已经完成")
 
 type OperationResult struct {
-	RequestID string          `json:"request_id"`
-	Action    string          `json:"action"`
-	CaseID    string          `json:"case_id"`
-	Revision  int64           `json:"revision"`
-	Response  json.RawMessage `json:"response"`
-	CreatedAt time.Time       `json:"created_at"`
+	RequestID     string          `json:"request_id"`
+	Action        string          `json:"action"`
+	CaseID        string          `json:"case_id"`
+	Revision      int64           `json:"revision"`
+	RequestDigest string          `json:"request_digest"`
+	Response      json.RawMessage `json:"response"`
+	CreatedAt     time.Time       `json:"created_at"`
 }
 
 type AuditEvent struct {

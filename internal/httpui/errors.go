@@ -21,6 +21,7 @@ func writeError(w http.ResponseWriter, err error) {
 	var validation *domain.ValidationErrors
 	var conflict *domain.RevisionConflict
 	var treeConflict *domain.TreeCodeConflict
+	var idempotency *domain.IdempotencyConflict
 	switch {
 	case errors.As(err, &reqErr):
 		status, body.Code, body.Message = reqErr.status, reqErr.code, reqErr.message
@@ -32,6 +33,9 @@ func writeError(w http.ResponseWriter, err error) {
 		status, body.Code, body.Message = http.StatusConflict, "tree_code_conflict", treeConflict.Error()
 		body.Fields = map[string]string{"tree_code": treeConflict.Error()}
 		body.ConflictCaseID, body.ConflictStatus = treeConflict.CaseID, treeConflict.Status
+	case errors.As(err, &idempotency):
+		status, body.Code, body.Message = http.StatusConflict, "idempotency_conflict", idempotency.Error()
+		body.Fields = map[string]string{"request_id": idempotency.Error()}
 	case errors.Is(err, domain.ErrNotFound):
 		status, body.Code, body.Message = http.StatusNotFound, "not_found", err.Error()
 	case errors.Is(err, domain.ErrBlockingFindings):

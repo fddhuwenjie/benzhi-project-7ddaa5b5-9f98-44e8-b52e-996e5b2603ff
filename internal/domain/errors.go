@@ -38,10 +38,19 @@ type TreeCodeConflict struct {
 	Status Status `json:"status"`
 }
 
+type IdempotencyConflict struct {
+	RequestID string `json:"request_id"`
+	Action    string `json:"action"`
+}
+
 func (e *TreeCodeConflict) Error() string {
 	return fmt.Sprintf("古树编号已被个案 %s 使用（状态：%s）", e.CaseID, e.Status)
 }
 
 func (e *RevisionConflict) Error() string {
 	return fmt.Sprintf("revision 冲突：期望 %d，当前 %d", e.Expected, e.Current)
+}
+
+func (e *IdempotencyConflict) Error() string {
+	return fmt.Sprintf("request_id %s 已用于操作 %s 但请求载荷不同", e.RequestID, e.Action)
 }

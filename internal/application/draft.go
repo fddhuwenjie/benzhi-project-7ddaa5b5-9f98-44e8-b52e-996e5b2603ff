@@ -9,7 +9,11 @@ import (
 
 func (s *Service) CreateCase(cmd CreateCaseCommand) (*domain.MigrationCase, error) {
 	const action = "create_case"
-	if replay, ok, err := s.replay(cmd.RequestID, action); ok || err != nil {
+	digest, err := digestPayload(cmd.Plan)
+	if err != nil {
+		return nil, err
+	}
+	if replay, ok, err := s.replay(cmd.RequestID, action, digest); ok || err != nil {
 		return replay, err
 	}
 	now := s.now().UTC()
@@ -24,8 +28,8 @@ func (s *Service) CreateCase(cmd CreateCaseCommand) (*domain.MigrationCase, erro
 	if err != nil {
 		return nil, err
 	}
-	if err := s.repo.CreateWithAudit(c, cmd.RequestID, action, response, now, store.AuditContext{Actor: "系统角色：方案编制", Result: "创建古树迁移方案草稿"}); err != nil {
-		if replay, ok, replayErr := s.replay(cmd.RequestID, action); ok {
+	if err := s.repo.CreateWithAudit(c, cmd.RequestID, action, digest, response, now, store.AuditContext{Actor: "系统角色：方案编制", Result: "创建古树迁移方案草稿"}); err != nil {
+		if replay, ok, replayErr := s.replay(cmd.RequestID, action, digest); ok {
 			return replay, nil
 		} else if replayErr != nil {
 			return nil, replayErr
@@ -37,7 +41,11 @@ func (s *Service) CreateCase(cmd CreateCaseCommand) (*domain.MigrationCase, erro
 
 func (s *Service) UpdateDraft(id string, cmd UpdateDraftCommand) (*domain.MigrationCase, error) {
 	const action = "update_draft"
-	c, replayed, err := s.loadForMutation(id, cmd.CommandMeta, action)
+	digest, err := digestPayload(cmd.Plan)
+	if err != nil {
+		return nil, err
+	}
+	c, replayed, err := s.loadForMutation(id, cmd.CommandMeta, action, digest)
 	if err != nil || replayed {
 		return c, err
 	}
@@ -59,14 +67,14 @@ func (s *Service) UpdateDraft(id string, cmd UpdateDraftCommand) (*domain.Migrat
 	if err != nil {
 		return nil, err
 	}
-	if err := s.repo.SaveWithAudit(c, expected, cmd.RequestID, action, from, response, now, store.AuditContext{Actor: "系统角色：方案编制", Result: "更新草稿资料并保留古树编号展示值"}); err != nil {
-		return s.replayAfterConflict(cmd.RequestID, action, err)
+	if err := s.repo.SaveWithAudit(c, expected, cmd.RequestID, action, digest, from, response, now, store.AuditContext{Actor: "系统角色：方案编制", Result: "更新草稿资料并保留古树编号展示值"}); err != nil {
+		return s.replayAfterConflict(cmd.RequestID, action, digest, err)
 	}
 	return c, nil
 }
 
-func (s *Service) replayAfterConflict(requestID, action string, saveErr error) (*domain.MigrationCase, error) {
-	if replay, ok, err := s.replay(requestID, action); ok {
+func (s *Service) replayAfterConflict(requestID, action, digest string, saveErr error) (*domain.MigrationCase, error) {
+	if replay, ok, err := s.replay(requestID, action, digest); ok {
 		return replay, nil
 	} else if err != nil {
 		return nil, err

@@ -2,6 +2,7 @@ package application
 
 import (
 	"crypto/rand"
+	"crypto/sha256"
 	"encoding/hex"
 	"encoding/json"
 	"errors"
@@ -62,7 +63,7 @@ func (s *Service) RuleCatalog() any {
 	}{policy.Version, policy.RuleDescriptions()}
 }
 
-func (s *Service) replay(requestID, action string) (*domain.MigrationCase, bool, error) {
+func (s *Service) replay(requestID, action, requestDigest string) (*domain.MigrationCase, bool, error) {
 	if strings.TrimSpace(requestID) == "" {
 		return nil, false, fieldError("request_id", "不能为空")
 	}
@@ -73,6 +74,9 @@ func (s *Service) replay(requestID, action string) (*domain.MigrationCase, bool,
 	if result.Action != action {
 		return nil, false, fmt.Errorf("request_id 已用于操作 %s", result.Action)
 	}
+	if result.RequestDigest != "" && requestDigest != result.RequestDigest {
+		return nil, false, &domain.IdempotencyConflict{RequestID: requestID, Action: action}
+	}
 	var c domain.MigrationCase
 	if err := json.Unmarshal(result.Response, &c); err != nil {
 		return nil, false, fmt.Errorf("读取幂等结果失败：%w", err)
@@ -80,8 +84,8 @@ func (s *Service) replay(requestID, action string) (*domain.MigrationCase, bool,
 	return &c, true, nil
 }
 
-func (s *Service) loadForMutation(id string, meta CommandMeta, action string) (*domain.MigrationCase, bool, error) {
-	if replay, ok, err := s.replay(meta.RequestID, action); ok || err != nil {
+func (s *Service) loadForMutation(id string, meta CommandMeta, action, requestDigest string) (*domain.MigrationCase, bool, error) {
+	if replay, ok, err := s.replay(meta.RequestID, action, requestDigest); ok || err != nil {
 		if ok && replay.ID != id {
 			return nil, false, fmt.Errorf("request_id 已用于其他个案")
 		}
@@ -101,6 +105,18 @@ func (s *Service) loadForMutation(id string, meta CommandMeta, action string) (*
 }
 
 func marshalCase(c *domain.MigrationCase) (json.RawMessage, error) { return json.Marshal(c) }
+
+func digestPayload(payload any) (string, error) {
+	if payload == nil {
+		return "", nil
+	}
+	b, err := json.Marshal(payload)
+	if err != nil {
+		return "", err
+	}
+	sum := sha256.Sum256(b)
+	return hex.EncodeToString(sum[:]), nil
+}
 
 func fieldError(field, message string) error {
 	e := domain.NewValidationErrors()

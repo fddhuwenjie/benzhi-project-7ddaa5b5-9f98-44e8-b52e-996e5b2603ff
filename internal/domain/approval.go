@@ -98,10 +98,20 @@ func (c *MigrationCase) pendingApprovalDigest() (string, error) {
 
 func (c *MigrationCase) digestPayload(finalRevision int64, approval ApprovalRecord) (string, error) {
 	findings := append([]PolicyFinding(nil), c.Findings...)
-	opinions := append([]ReviewOpinion(nil), c.Opinions...)
+	opinions := make([]ReviewOpinion, len(c.Opinions))
+	for i := range c.Opinions {
+		opinions[i] = c.Opinions[i]
+		opinions[i].Issues = append([]ReviewIssue(nil), c.Opinions[i].Issues...)
+	}
 	items := append([]ModificationItem(nil), c.ModificationItems...)
 	batches := append([]ValidationBatch(nil), c.ValidationBatches...)
-	submissions := c.RevisionSubmissions
+	submissions := make([]RevisionSubmission, len(c.RevisionSubmissions))
+	for i := range c.RevisionSubmissions {
+		submissions[i] = c.RevisionSubmissions[i]
+		submissions[i].FieldChanges = append([]FieldChange(nil), c.RevisionSubmissions[i].FieldChanges...)
+		submissions[i].IssueResponses = append([]IssueResponse(nil), c.RevisionSubmissions[i].IssueResponses...)
+		submissions[i].AttachmentMetadata = append([]AttachmentMetadata(nil), c.RevisionSubmissions[i].AttachmentMetadata...)
+	}
 	sort.Slice(findings, func(i, j int) bool { return findings[i].RuleCode < findings[j].RuleCode })
 	sort.Slice(opinions, func(i, j int) bool {
 		if opinions[i].ReviewRound != opinions[j].ReviewRound {

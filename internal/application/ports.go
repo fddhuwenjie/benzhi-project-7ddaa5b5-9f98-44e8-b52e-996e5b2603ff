@@ -22,6 +22,7 @@ type PolicyEvaluator interface {
 	Evaluate(caseID string, revision int64, plan domain.Plan) []domain.PolicyFinding
 	EvaluateAffected(caseID string, revision int64, plan domain.Plan, changes []domain.FieldChange, previous []domain.PolicyFinding) []domain.PolicyFinding
 	EvaluateRevision(caseID string, revision int64, plan domain.Plan, changes []domain.FieldChange, previous []domain.PolicyFinding) domain.RevisionEvaluation
+	EvaluateRevisionWithVersion(caseID string, revision int64, plan domain.Plan, changes []domain.FieldChange, previous []domain.PolicyFinding, aggregateRuleVersion string) domain.RevisionEvaluation
 }
 
 type IDGenerator func(prefix string) string

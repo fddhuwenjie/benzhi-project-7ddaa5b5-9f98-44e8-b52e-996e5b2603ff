@@ -30,6 +30,83 @@ func (e *Evaluator) EvaluateAffected(caseID string, revision int64, plan domain.
 	return e.EvaluateRevision(caseID, revision, plan, changes, previous).Findings
 }
 
+// EvaluateRevisionWithVersion determines the evaluation strategy by comparing
+// the aggregate rule version with the current policy version. When they differ,
+// the whole rule catalog is re-evaluated against the current rules and a
+// complete impact chain is produced that explicitly marks the version switch.
+// Otherwise the revision is evaluated against only the affected fields and the
+// previous conclusions for unaffected rules are carried forward.
+func (e *Evaluator) EvaluateRevisionWithVersion(caseID string, revision int64, plan domain.Plan, changes []domain.FieldChange, previous []domain.PolicyFinding, aggregateRuleVersion string) domain.RevisionEvaluation {
+	if aggregateRuleVersion != Version {
+		return e.evaluateVersionSwitch(caseID, revision, plan, changes, previous, aggregateRuleVersion)
+	}
+	return e.EvaluateRevision(caseID, revision, plan, changes, previous)
+}
+
+// evaluateVersionSwitch re-evaluates every rule in the current catalog because
+// the aggregate was last validated under a different rule version. Previous
+// findings may have been produced by an older rule set, so carrying them
+// forward would risk treating a now-missing finding as a pass. Each rule is
+// recalculated and the impact chain records the version switch so the
+// resulting audit trail is explicit about the change in rule versions.
+func (e *Evaluator) evaluateVersionSwitch(caseID string, revision int64, plan domain.Plan, changes []domain.FieldChange, previous []domain.PolicyFinding, aggregateRuleVersion string) domain.RevisionEvaluation {
+	changed := make(map[string]bool)
+	for _, change := range changes {
+		changed[change.Field] = true
+	}
+	previousByCode := make(map[string]domain.PolicyFinding, len(previous))
+	for _, finding := range previous {
+		previousByCode[finding.RuleCode] = finding
+	}
+
+	fieldImpacts := make([]domain.FieldRuleImpact, 0, len(changes))
+	for _, change := range changes {
+		codes := make([]string, 0)
+		for _, rule := range Catalog() {
+			for _, field := range rule.Fields {
+				if field == change.Field {
+					codes = append(codes, rule.Code)
+					break
+				}
+			}
+		}
+		sort.Strings(codes)
+		fieldImpacts = append(fieldImpacts, domain.FieldRuleImpact{Field: change.Field, RuleCodes: codes, NoRecalculation: len(codes) == 0})
+	}
+	sort.Slice(fieldImpacts, func(i, j int) bool { return fieldImpacts[i].Field < fieldImpacts[j].Field })
+
+	findings := make([]domain.PolicyFinding, 0)
+	impacts := make([]domain.RuleImpact, 0, len(Catalog()))
+	for _, rule := range Catalog() {
+		prior, hadPrior := previousByCode[rule.Code]
+		beforeOutcome, beforeEvidence := outcome(hadPrior, prior)
+		current := e.evaluateRules(caseID, revision, plan, []Rule{rule})
+		impact := domain.RuleImpact{RuleCode: rule.Code, RuleVersion: Version, BeforeOutcome: beforeOutcome, BeforeEvidence: beforeEvidence}
+		impact.Disposition = domain.RuleRecalculated
+		fieldNames := make([]string, 0, len(rule.Fields))
+		for _, field := range rule.Fields {
+			if changed[field] {
+				fieldNames = append(fieldNames, field)
+			}
+		}
+		if len(fieldNames) > 0 {
+			impact.Reason = "规则版本由 " + aggregateRuleVersion + " 切换至 " + Version + "，且字段 " + strings.Join(fieldNames, "、") + " 变化，按当前规则全集复算"
+		} else {
+			impact.Reason = "规则版本由 " + aggregateRuleVersion + " 切换至 " + Version + "，按当前规则全集复算"
+		}
+		if len(current) == 1 {
+			impact.AfterOutcome, impact.AfterEvidence = outcome(true, current[0])
+			findings = append(findings, current[0])
+		} else {
+			impact.AfterOutcome = domain.RuleOutcomePass
+		}
+		impacts = append(impacts, impact)
+	}
+	sort.Slice(findings, func(i, j int) bool { return findings[i].RuleCode < findings[j].RuleCode })
+	sort.Slice(impacts, func(i, j int) bool { return impacts[i].RuleCode < impacts[j].RuleCode })
+	return domain.RevisionEvaluation{Findings: findings, FieldRuleImpacts: fieldImpacts, RuleImpacts: impacts}
+}
+
 func (e *Evaluator) EvaluateRevision(caseID string, revision int64, plan domain.Plan, changes []domain.FieldChange, previous []domain.PolicyFinding) domain.RevisionEvaluation {
 	changed := make(map[string]bool)
 	for _, change := range changes {

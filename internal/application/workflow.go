@@ -82,7 +82,7 @@ func (s *Service) SubmitRevision(id string, cmd SubmitRevisionCommand) (*domain.
 	}
 	expected, from, now := c.Revision, c.Status, s.now().UTC()
 	changes := domain.DiffPlans(c.Plan, cmd.Plan)
-	evaluation := s.policy.EvaluateRevision(c.ID, c.Revision+1, cmd.Plan, changes, c.Findings)
+	evaluation := s.policy.EvaluateRevisionWithVersion(c.ID, c.Revision+1, cmd.Plan, changes, c.Findings, c.RuleVersion)
 	sub := domain.RevisionSubmission{ID: s.newID("revision"), CaseID: id, FromRevision: expected, IssueResponses: cmd.IssueResponses, AttachmentMetadata: cmd.AttachmentMetadata, RuleVersion: policy.Version, FieldRuleImpacts: evaluation.FieldRuleImpacts, RuleImpacts: evaluation.RuleImpacts, SubmittedBy: strings.TrimSpace(cmd.SubmittedBy), SubmittedAt: now}
 	if err := c.SubmitRevision(sub, cmd.Plan, evaluation.Findings, now); err != nil {
 		return nil, err

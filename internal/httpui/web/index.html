@@ -1,0 +1,115 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>古树迁移方案联合审查台</title>
+  <link rel="stylesheet" href="/assets/app.css">
+</head>
+<body>
+  <header class="topbar">
+    <div><span class="brand-mark">古</span><h1>古树迁移方案联合审查台</h1></div>
+    <button id="new-case" class="primary">新建方案</button>
+  </header>
+  <div class="layout">
+    <aside class="case-rail">
+      <div class="rail-title"><h2>迁移个案</h2><span id="case-count">0</span></div>
+      <form id="case-filters" class="rail-filters">
+        <label>状态<select name="status"><option value="">全部状态</option><option value="draft">草稿</option><option value="validated">已校验</option><option value="under_review">联合会审</option><option value="revision_required">待整改</option><option value="resubmitted">整改复核</option><option value="approved">已批准</option></select></label>
+        <label>古树编号<input name="tree_code"></label>
+        <label>树种<input name="species"></label>
+        <label>迁出或迁入位置<input name="location"></label>
+        <label>排序<select name="sort"><option value="updated_at">最近更新</option><option value="construction_window">施工窗口</option><option value="tree_code">古树编号</option></select></label>
+        <div class="filter-actions"><button type="submit" class="primary">筛选</button><button type="button" id="clear-filters" class="secondary">清除</button></div>
+      </form>
+      <div id="queue-stats" class="queue-stats"></div>
+      <nav id="case-list" aria-label="迁移个案列表"></nav>
+      <div class="pager"><button type="button" id="prev-page" aria-label="上一页">‹</button><span id="page-label">1 / 1</span><button type="button" id="next-page" aria-label="下一页">›</button></div>
+    </aside>
+    <main>
+      <section id="empty-state" class="empty-state">
+        <div class="tree-ring"></div>
+        <h2>尚未选择迁移个案</h2>
+        <button class="primary open-create">创建首个方案</button>
+      </section>
+      <div id="case-view" hidden>
+        <section class="case-heading">
+          <div><p id="tree-code" class="eyebrow"></p><h2 id="case-title"></h2><p id="case-location"></p></div>
+          <div class="heading-meta"><span id="status-badge" class="status"></span><span id="revision-label"></span></div>
+        </section>
+        <section class="workflow-band">
+          <ol id="timeline" class="timeline"></ol>
+          <div id="action-bar" class="action-bar"></div>
+          <div id="approval-checks" class="approval-checks"></div>
+          <details class="audit-area"><summary>责任审计时间线</summary><div class="audit-controls"><label>操作<select id="audit-action"><option value="">全部操作</option></select></label><label>revision<input id="audit-revision" type="number" min="1"></label></div><div id="audit-events" class="data-list"></div></details>
+        </section>
+        <div class="tabs" role="tablist">
+          <button class="tab active" data-tab="overview">方案资料</button>
+          <button class="tab" data-tab="rules">规则结果 <span id="finding-count"></span></button>
+          <button class="tab" data-tab="reviews">会审意见 <span id="opinion-count"></span></button>
+          <button class="tab" data-tab="versions">整改版本</button>
+          <button class="tab" data-tab="archive">批准档案</button>
+        </div>
+        <section id="panel-overview" class="tab-panel active"><dl id="plan-detail" class="detail-grid"></dl></section>
+        <section id="panel-rules" class="tab-panel"><div class="batch-tools"><label>校验批次<select id="batch-select"></select></label><span id="batch-summary"></span></div><div id="findings" class="data-list"></div></section>
+        <section id="panel-reviews" class="tab-panel"><div id="review-seats" class="seat-grid"></div><div id="opinions" class="data-list"></div><div id="modifications"></div></section>
+        <section id="panel-versions" class="tab-panel"><div id="versions" class="data-list"></div></section>
+        <section id="panel-archive" class="tab-panel"><div id="archive"></div></section>
+      </div>
+    </main>
+  </div>
+
+  <dialog id="case-dialog">
+    <form id="case-form">
+      <div class="dialog-head"><div><p class="eyebrow">迁移个案</p><h2 id="form-title">新建方案</h2></div><button type="button" class="icon close-dialog" aria-label="关闭">×</button></div>
+      <div class="form-grid">
+        <label>古树编号<input name="tree_code" required value="GS-2026-001"></label>
+        <label>树种<input name="species" required value="香樟"></label>
+        <label>树龄（年）<input name="age_years" type="number" min="100" required value="180"></label>
+        <label>健康等级<select name="health_grade"><option>良好</option><option>一般</option><option>衰弱</option></select></label>
+        <label class="wide">迁出位置<input name="source_location" required value="人民路东侧绿地 12 号"></label>
+        <label class="wide">迁入位置<input name="destination_location" required value="中央公园古树保护区 A3 地块"></label>
+        <label class="wide">迁移理由<textarea name="migration_reason" required>道路改造需避让，原址无法保留完整根系空间。</textarea></label>
+        <label>施工窗口<input name="construction_window" required value="2026-11-10/2026-11-18"></label>
+        <label>运输时长（小时）<input name="transport_duration_hours" type="number" min="1" value="4"></label>
+        <label>胸径（cm）<input name="trunk_diameter_cm" type="number" min="1" value="80"></label>
+        <label>土球直径（cm）<input name="root_ball_diameter_cm" type="number" min="1" value="800"></label>
+        <label class="check"><input name="destination_ready" type="checkbox" checked>迁入地已完成准备</label>
+        <label class="wide">保护措施<textarea name="protection_measures" required>根系采用湿麻布包裹，树冠分级收拢固定，伤口消毒并涂保护剂。</textarea></label>
+      </div>
+      <div id="form-errors" class="form-errors"></div>
+      <div class="dialog-actions"><button type="button" class="secondary close-dialog">取消</button><button class="primary" type="submit">保存方案</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="review-dialog">
+    <form id="review-form">
+      <div class="dialog-head"><h2>提交专业意见</h2><button type="button" class="icon close-review" aria-label="关闭">×</button></div>
+      <div class="form-grid one">
+        <label>专业席位<select name="discipline"><option value="arboriculture">树木养护</option><option value="construction">施工协调</option></select></label>
+        <label>审查人<input name="reviewer_name" required></label>
+        <label>审查结论<select name="conclusion"><option value="revise">需要整改</option><option value="pass">通过</option></select></label>
+        <label>审查依据<textarea name="basis" required></textarea></label>
+        <fieldset><legend>问题条目</legend><div id="issue-rows"></div><button type="button" id="add-issue" class="secondary">增加问题</button></fieldset>
+      </div>
+      <div id="review-errors" class="form-errors"></div>
+      <div class="dialog-actions"><button type="button" class="secondary close-review">取消</button><button class="primary" type="submit">提交意见</button></div>
+    </form>
+  </dialog>
+
+  <dialog id="revision-dialog">
+    <form id="revision-form">
+      <div class="dialog-head"><div><p class="eyebrow">逐条响应整改工作区</p><h2>提交整改版本</h2></div><button type="button" class="icon close-revision" aria-label="关闭">×</button></div>
+      <label class="standalone">提交人<input name="submitted_by" required></label>
+      <h3>完整方案字段</h3><div id="revision-plan" class="form-grid"></div>
+      <h3>问题响应</h3><div id="response-rows" class="data-list"></div>
+      <h3>附件元数据</h3><div id="attachment-rows" class="data-list"></div><button type="button" id="add-attachment" class="secondary">增加附件</button>
+      <section class="submit-preview"><h3>提交确认</h3><div id="revision-preview"></div></section>
+      <div id="revision-errors" class="form-errors"></div>
+      <div class="dialog-actions"><button type="button" class="secondary close-revision">取消</button><button class="primary" type="submit">提交整改版本</button></div>
+    </form>
+  </dialog>
+  <div id="toast" role="status" aria-live="polite"></div>
+  <script src="/assets/app.js" defer></script>
+</body>
+</html>

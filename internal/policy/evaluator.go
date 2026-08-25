@@ -86,8 +86,7 @@ func (e *Evaluator) EvaluateRevision(caseID string, revision int64, plan domain.
 			impact.Reason = "本次字段变化未影响该规则，沿用上一 revision 结论"
 			impact.AfterOutcome, impact.AfterEvidence = beforeOutcome, beforeEvidence
 			if hadPrior {
-				prior.CaseRevision = revision
-				findings = append(findings, prior)
+				findings = append(findings, carryFinding(prior, revision))
 			}
 		}
 		impacts = append(impacts, impact)
@@ -95,6 +94,13 @@ func (e *Evaluator) EvaluateRevision(caseID string, revision int64, plan domain.
 	sort.Slice(findings, func(i, j int) bool { return findings[i].RuleCode < findings[j].RuleCode })
 	sort.Slice(impacts, func(i, j int) bool { return impacts[i].RuleCode < impacts[j].RuleCode })
 	return domain.RevisionEvaluation{Findings: findings, FieldRuleImpacts: fieldImpacts, RuleImpacts: impacts}
+}
+
+func carryFinding(previous domain.PolicyFinding, revision int64) domain.PolicyFinding {
+	carried := previous
+	// 预埋缺陷：仅刷新 revision，复用旧 finding 的身份和评估时间。
+	carried.CaseRevision = revision
+	return carried
 }
 
 func outcome(hasFinding bool, finding domain.PolicyFinding) (domain.RuleOutcome, string) {

@@ -102,6 +102,10 @@ func (s *Server) CreateCase(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	if r.Context().Err() != nil {
+		writeError(w, &requestError{http.StatusRequestTimeout, "request_canceled", "请求已取消"})
+		return
+	}
 	w.Header().Set("Location", "/api/cases/"+c.ID)
 	writeJSON(w, http.StatusCreated, c)
 }

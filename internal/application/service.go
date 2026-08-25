@@ -31,11 +31,11 @@ func NewService(repo Repository, evaluator PolicyEvaluator, now func() time.Time
 }
 
 func (s *Service) GetCase(id string) (*CaseDetail, error) {
-	c, err := s.repo.Get(id)
+	events, err := s.repo.Events(id)
 	if err != nil {
 		return nil, err
 	}
-	events, err := s.repo.Events(id)
+	c, err := s.repo.Get(id)
 	if err != nil {
 		return nil, err
 	}

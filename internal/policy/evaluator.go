@@ -3,6 +3,7 @@ package policy
 import (
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,18 +13,30 @@ import (
 )
 
 type Evaluator struct {
-	now func() time.Time
+	now   func() time.Time
+	cache map[string][]domain.PolicyFinding
 }
 
 func NewEvaluator(now func() time.Time) *Evaluator {
 	if now == nil {
 		now = time.Now
 	}
-	return &Evaluator{now: now}
+	return &Evaluator{now: now, cache: make(map[string][]domain.PolicyFinding)}
 }
 
 func (e *Evaluator) Evaluate(caseID string, revision int64, plan domain.Plan) []domain.PolicyFinding {
-	return e.evaluateRules(caseID, revision, plan, Catalog())
+	keyBytes, _ := json.Marshal(struct {
+		CaseID  string      `json:"case_id"`
+		Version int64       `json:"revision"`
+		Plan    domain.Plan `json:"plan"`
+	}{caseID, revision, plan})
+	key := string(keyBytes)
+	if cached, ok := e.cache[key]; ok {
+		return append([]domain.PolicyFinding(nil), cached...)
+	}
+	findings := e.evaluateRules(caseID, revision, plan, Catalog())
+	e.cache[key] = append([]domain.PolicyFinding(nil), findings...)
+	return findings
 }
 
 func (e *Evaluator) EvaluateAffected(caseID string, revision int64, plan domain.Plan, changes []domain.FieldChange, previous []domain.PolicyFinding) []domain.PolicyFinding {

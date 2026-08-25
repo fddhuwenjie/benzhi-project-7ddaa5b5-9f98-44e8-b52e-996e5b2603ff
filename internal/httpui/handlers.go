@@ -88,6 +88,10 @@ func (s *Server) GetCase(w http.ResponseWriter, r *http.Request) {
 		writeError(w, err)
 		return
 	}
+	if ctxErr := r.Context().Err(); ctxErr != nil {
+		writeError(w, &requestError{http.StatusRequestTimeout, "request_canceled", "请求已取消"})
+		return
+	}
 	writeJSON(w, http.StatusOK, detail)
 }
 

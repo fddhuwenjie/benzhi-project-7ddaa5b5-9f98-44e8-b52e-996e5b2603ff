@@ -101,7 +101,7 @@ func (c *MigrationCase) digestPayload(finalRevision int64, approval ApprovalReco
 	opinions := append([]ReviewOpinion(nil), c.Opinions...)
 	items := append([]ModificationItem(nil), c.ModificationItems...)
 	batches := append([]ValidationBatch(nil), c.ValidationBatches...)
-	submissions := append([]RevisionSubmission(nil), c.RevisionSubmissions...)
+	submissions := c.RevisionSubmissions
 	sort.Slice(findings, func(i, j int) bool { return findings[i].RuleCode < findings[j].RuleCode })
 	sort.Slice(opinions, func(i, j int) bool {
 		if opinions[i].ReviewRound != opinions[j].ReviewRound {
@@ -109,6 +109,11 @@ func (c *MigrationCase) digestPayload(finalRevision int64, approval ApprovalReco
 		}
 		return opinions[i].Discipline < opinions[j].Discipline
 	})
+	for i := range opinions {
+		sort.Slice(opinions[i].Issues, func(left, right int) bool {
+			return opinions[i].Issues[left].Code < opinions[i].Issues[right].Code
+		})
+	}
 	sort.Slice(items, func(i, j int) bool { return items[i].IssueCode < items[j].IssueCode })
 	sort.Slice(batches, func(i, j int) bool {
 		if batches[i].EvaluatedAt.Equal(batches[j].EvaluatedAt) {
@@ -117,6 +122,17 @@ func (c *MigrationCase) digestPayload(finalRevision int64, approval ApprovalReco
 		return batches[i].EvaluatedAt.Before(batches[j].EvaluatedAt)
 	})
 	sort.Slice(submissions, func(i, j int) bool { return submissions[i].ToRevision < submissions[j].ToRevision })
+	for i := range submissions {
+		sort.Slice(submissions[i].FieldChanges, func(left, right int) bool {
+			return submissions[i].FieldChanges[left].Field < submissions[i].FieldChanges[right].Field
+		})
+		sort.Slice(submissions[i].IssueResponses, func(left, right int) bool {
+			return submissions[i].IssueResponses[left].IssueCode < submissions[i].IssueResponses[right].IssueCode
+		})
+		sort.Slice(submissions[i].AttachmentMetadata, func(left, right int) bool {
+			return submissions[i].AttachmentMetadata[left].Name < submissions[i].AttachmentMetadata[right].Name
+		})
+	}
 	payload := struct {
 		ID                string               `json:"id"`
 		FinalRevision     int64                `json:"final_revision"`

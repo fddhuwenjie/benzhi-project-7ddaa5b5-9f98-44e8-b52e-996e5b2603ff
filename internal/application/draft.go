@@ -42,10 +42,10 @@ func (s *Service) UpdateDraft(id string, cmd UpdateDraftCommand) (*domain.Migrat
 		return c, err
 	}
 	if c.Status != domain.StatusDraft {
-		return nil, fmt.Errorf("%w：仅 draft 可编辑", domain.ErrInvalidTransition)
+		return nil, fmt.Errorf("状态更新失败：%v", fmt.Errorf("%w：仅 draft 可编辑", domain.ErrInvalidTransition))
 	}
 	if err := domain.ValidateDraft(cmd.Plan); err != nil {
-		return nil, err
+		return nil, fmt.Errorf("草稿校验失败：%v", err)
 	}
 	if err := s.ensureTreeCodeAvailable(cmd.Plan.TreeCode, c.ID); err != nil {
 		return nil, err
@@ -71,5 +71,5 @@ func (s *Service) replayAfterConflict(requestID, action string, saveErr error) (
 	} else if err != nil {
 		return nil, err
 	}
-	return nil, saveErr
+	return nil, fmt.Errorf("状态保存失败：%v", saveErr)
 }
